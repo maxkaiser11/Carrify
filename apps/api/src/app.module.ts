@@ -10,3 +10,4 @@ import { PrismaService } from './prisma/prisma.service';
     providers: [AppService, PrismaService],
 })
 export class AppModule { }
+
