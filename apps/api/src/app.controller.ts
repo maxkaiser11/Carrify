@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -23,5 +23,11 @@ export class AppController {
     @Post('/max')
     createUser() {
         return this.appService.createUser();
+    }
+
+    // deletes the user created in createUser
+    @Delete('/max')
+    deleteUser() {
+        return this.appService.deleteUser();
     }
 } 
