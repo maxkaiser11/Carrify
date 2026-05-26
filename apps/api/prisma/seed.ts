@@ -9,9 +9,9 @@ const prisma = new PrismaClient({
 async function main() {
     await prisma.user.createMany({
         data: [
-            {email: 'alice@example.com', name: 'Alice'},
-            {email: 'bob@example.com', name: 'Bob'},
-            {email: 'carol@example.com', name: 'Carol'},
+            {clerkId: 'seed_alice', email: 'alice@example.com', name: 'Alice'},
+            {clerkId: 'seed_bob', email: 'bob@example.com', name: 'Bob'},
+            {clerkId: 'seed_carol', email: 'carol@example.com', name: 'Carol'},
         ],
         skipDuplicates: true,
     });

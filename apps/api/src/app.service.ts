@@ -15,26 +15,6 @@ export class AppService {
         return "Hello Carrify";
     }
 
-    getUser() {
-        return this.prisma.user.findFirst({
-            where: {
-                email: 'max@carrify.gg'
-            }
-        });
-
-    }
-
-    async createUser() {
-        return await this.prisma.user.create(
-            {
-                data: {
-                    email: "max@carrify.gg",
-                    name: "Max"
-                }
-            }
-        )
-    }
-
     async deleteUser() {
         return await this.prisma.user.delete({
             where: {

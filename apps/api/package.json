@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^3.4.13",
+    "@clerk/clerk-sdk-node": "^4.13.23",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -28,11 +29,13 @@
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.0.3",
     "passport": "^0.7.0",
     "passport-custom": "^1.1.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "svix": "^1.94.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -40,6 +43,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",

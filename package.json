@@ -23,5 +23,6 @@
     "packages/*"
   ],
   "dependencies": {
+    "@clerk/nextjs": "^7.4.1"
   }
 }
