@@ -13,10 +13,43 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  CUSTOMER
+  BOOSTER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id        Int      @id @default(autoincrement())
+  clerkId   String   @unique
   email     String   @unique
   name      String?
+  imageUrl  String?
+  role      Role     @default(CUSTOMER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  boosterApplication BoosterApplication?
+}
+
+model BoosterApplication {
+  id         Int               @id @default(autoincrement())
+  userId     Int               @unique
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     ApplicationStatus @default(PENDING)
+  games      String[]
+  experience String
+  ranks      Json
+  discord    String?
+  reviewedBy Int?
+  reviewedAt DateTime?
+  notes      String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 }
