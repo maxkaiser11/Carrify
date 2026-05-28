@@ -1,0 +1,21 @@
+{
+  "slug": "coaching",
+  "name": "Coaching",
+  "description": "1-on-1 coaching with a verified high-rank player. Replay review, live games, or both.",
+  "category": "COACHING",
+  "requiredBoosterTags": ["dota2", "coach"],
+  "configSchema": {
+    "fields": [
+      { "key": "hours",       "label": "Hours",                       "type": "number", "required": true, "min": 1, "max": 20 },
+      { "key": "sessionType", "label": "Session type",                "type": "enum",   "required": true, "options": ["replay-review", "live-coaching", "mixed"], "default": "mixed" },
+      { "key": "focusArea",   "label": "What do you want to improve?", "type": "string", "required": false, "maxLength": 500 }
+    ]
+  },
+  "pricingModel": "PER_UNIT",
+  "pricingData": {
+    "pricePerUnitCents": 3500,
+    "unitName": "hour",
+    "minUnits": 1,
+    "maxUnits": 20
+  }
+}

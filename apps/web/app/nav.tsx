@@ -43,12 +43,20 @@ export function Nav() {
               </span>
             )}
             {me?.role === 'ADMIN' && (
-              <Link
-                href="/admin/applications"
-                className="text-sm font-medium px-4 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center"
-              >
-                🛡️ Admin
-              </Link>
+              <>
+                <Link
+                  href="/admin/applications"
+                  className="text-sm font-medium px-3 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center"
+                >
+                  🛡️ Applications
+                </Link>
+                <Link
+                  href="/admin/services"
+                  className="text-sm font-medium px-3 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center"
+                >
+                  🛒 Services
+                </Link>
+              </>
             )}
             <UserButton />
           </Show>

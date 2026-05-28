@@ -1,25 +1,110 @@
 import 'dotenv/config';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { PrismaNeon } from '@prisma/adapter-neon';
+import { GameSeed, RanksSeed, ServiceSeed } from '@repo/types';
 
 const prisma = new PrismaClient({
-    adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
 });
 
-async function main() {
-    await prisma.user.createMany({
-        data: [
-            {clerkId: 'seed_alice', email: 'alice@example.com', name: 'Alice'},
-            {clerkId: 'seed_bob', email: 'bob@example.com', name: 'Bob'},
-            {clerkId: 'seed_carol', email: 'carol@example.com', name: 'Carol'},
-        ],
-        skipDuplicates: true,
-    });
+// Run via `prisma db seed` (or `tsx prisma/seed.ts`) from apps/api.
+const SEED_DATA = join(process.cwd(), 'prisma', 'seed-data');
 
-    const users = await prisma.user.findMany();
-    console.log('Seeded users: ', users);
+function loadJson(...segments: string[]): unknown {
+  return JSON.parse(readFileSync(join(SEED_DATA, ...segments), 'utf8'));
+}
+
+async function seedUsers() {
+  await prisma.user.createMany({
+    data: [
+      { clerkId: 'seed_alice', email: 'alice@example.com', name: 'Alice' },
+      { clerkId: 'seed_bob',   email: 'bob@example.com',   name: 'Bob' },
+      { clerkId: 'seed_carol', email: 'carol@example.com', name: 'Carol' },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+async function seedGame(gameSlug: string) {
+  const game = GameSeed.parse(loadJson(gameSlug, 'game.json'));
+  const ranks = RanksSeed.parse(loadJson(gameSlug, 'ranks.json'));
+
+  const dbGame = await prisma.game.upsert({
+    where: { slug: game.slug },
+    update: { name: game.name, iconUrl: game.iconUrl ?? null, isActive: game.isActive },
+    create: { slug: game.slug, name: game.name, iconUrl: game.iconUrl ?? null, isActive: game.isActive },
+  });
+
+  for (const [i, rank] of ranks.ranks.entries()) {
+    const order = i + 1;
+    if (rank.division === null) {
+      // Compound unique can't match `division: null` via generated where — manual lookup.
+      const existing = await prisma.rank.findFirst({
+        where: { gameId: dbGame.id, tier: rank.tier, division: null },
+      });
+      if (existing) {
+        await prisma.rank.update({ where: { id: existing.id }, data: { order, iconUrl: rank.iconUrl ?? null } });
+      } else {
+        await prisma.rank.create({
+          data: { gameId: dbGame.id, tier: rank.tier, division: null, order, iconUrl: rank.iconUrl ?? null },
+        });
+      }
+      continue;
+    }
+    await prisma.rank.upsert({
+      where: { gameId_tier_division: { gameId: dbGame.id, tier: rank.tier, division: rank.division } },
+      update: { order, iconUrl: rank.iconUrl ?? null },
+      create: { gameId: dbGame.id, tier: rank.tier, division: rank.division, order, iconUrl: rank.iconUrl ?? null },
+    });
+  }
+
+  const serviceDir = join(SEED_DATA, gameSlug, 'services');
+  const serviceFiles = readdirSync(serviceDir).filter((f) => f.endsWith('.json'));
+  for (const file of serviceFiles) {
+    const parsed = ServiceSeed.parse(loadJson(gameSlug, 'services', file));
+    await prisma.service.upsert({
+      where: { gameId_slug: { gameId: dbGame.id, slug: parsed.slug } },
+      update: {
+        name: parsed.name,
+        description: parsed.description,
+        category: parsed.category,
+        configSchema: parsed.configSchema,
+        pricingModel: parsed.pricingModel,
+        pricingData: parsed.pricingData,
+        requiredBoosterTags: parsed.requiredBoosterTags,
+        isActive: parsed.isActive,
+      },
+      create: {
+        gameId: dbGame.id,
+        slug: parsed.slug,
+        name: parsed.name,
+        description: parsed.description,
+        category: parsed.category,
+        configSchema: parsed.configSchema,
+        pricingModel: parsed.pricingModel,
+        pricingData: parsed.pricingData,
+        requiredBoosterTags: parsed.requiredBoosterTags,
+        isActive: parsed.isActive,
+      },
+    });
+  }
+}
+
+async function main() {
+  await seedUsers();
+  await seedGame('dota2');
+
+  const [users, games, ranks, services] = await Promise.all([
+    prisma.user.count(),
+    prisma.game.count(),
+    prisma.rank.count({ where: { game: { slug: 'dota2' } } }),
+    prisma.service.count({ where: { game: { slug: 'dota2' } } }),
+  ]);
+  console.log(`Seeded: ${users} users, ${games} games, ${ranks} Dota 2 ranks, ${services} Dota 2 services`);
 }
 
 main()
-    .catch((e) => { console.error(e); process.exit(1); })
-    .finally(() => prisma.$disconnect());
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

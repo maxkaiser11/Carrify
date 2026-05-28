@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -17,12 +17,12 @@ export class AdminController {
     }
 
     @Post(':id/approve')
-    approve(@Param('id', ParseIntPipe) id: number, @CurrentUser() auth: any) {
+    approve(@Param('id') id: string, @CurrentUser() auth: any) {
         return this.admin.approve(id, auth.user.id);
     }
 
     @Post(':id/reject')
-    reject(@Param('id', ParseIntPipe) id: number, @CurrentUser() auth: any, @Body('notes') notes?: string) {
+    reject(@Param('id') id: string, @CurrentUser() auth: any, @Body('notes') notes?: string) {
         return this.admin.reject(id, auth.user.id, notes);
     }
 }

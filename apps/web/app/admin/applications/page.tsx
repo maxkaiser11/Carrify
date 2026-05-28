@@ -58,8 +58,8 @@ export default function AdminApplicationsPage() {
   });
   const [filter, setFilter] = useState<Status>('PENDING');
   const [search, setSearch] = useState('');
-  const [busyId, setBusyId] = useState<number | null>(null);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     const fetched = await Promise.all(
@@ -124,7 +124,7 @@ export default function AdminApplicationsPage() {
     );
   }
 
-  const approve = async (id: number) => {
+  const approve = async (id: string) => {
     setBusyId(id);
     try {
       await api(`/admin/applications/${id}/approve`, { method: 'POST' });
@@ -134,7 +134,7 @@ export default function AdminApplicationsPage() {
     }
   };
 
-  const reject = async (id: number) => {
+  const reject = async (id: string) => {
     const notes = prompt('Rejection notes (optional):') ?? undefined;
     setBusyId(id);
     try {
@@ -148,7 +148,7 @@ export default function AdminApplicationsPage() {
     }
   };
 
-  const toggleExpanded = (id: number) =>
+  const toggleExpanded = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

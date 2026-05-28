@@ -13,7 +13,7 @@ export class ApplicationsService {
   constructor(private prisma: PrismaService) {}
 
 
-    async submit(userId: number, role: string, dto: SubmitApplicationDto) {
+    async submit(userId: string, role: string, dto: SubmitApplicationDto) {
         if (role === 'BOOSTER') throw new BadRequestException('You are already a booster');
         if (role === 'ADMIN') throw new BadRequestException('Admins cannot apply');
         if (!dto.games?.length) throw new BadRequestException('Pick at least one game');
@@ -35,7 +35,7 @@ export class ApplicationsService {
         });
 
     }
-    getMine(userId: number) {
+    getMine(userId: string) {
         return this.prisma.boosterApplication.findUnique({ where: { userId }});
     }
 }
