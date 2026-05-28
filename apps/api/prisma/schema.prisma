@@ -13,10 +13,28 @@ datasource db {
   provider = "postgresql"
 }
 
+// NOTE: Role exists for admin auth (RolesGuard). CLAUDE.md identifies boosters
+// via BoosterProfile rather than a Role enum — revisit once BoosterProfile is wired.
 enum Role {
   CUSTOMER
   BOOSTER
   ADMIN
+}
+
+enum ServiceCategory {
+  BOOST
+  COACHING
+  FARMING
+  COMPLETION
+  PLACEMENT
+  OTHER
+}
+
+enum PricingModel {
+  RANK_MATRIX
+  PER_UNIT
+  TIERED
+  FLAT
 }
 
 enum ApplicationStatus {
@@ -25,8 +43,35 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum OrderStatus {
+  PENDING_PAYMENT // order created, awaiting Stripe payment_intent.succeeded
+  PAID // payment confirmed, about to enter queue
+  AWAITING_BOOSTER // in queue, unassigned
+  ASSIGNED // booster assigned, awaiting their confirmation
+  IN_PROGRESS // booster has started work
+  DELIVERED // booster marked complete, awaiting buyer confirmation
+  COMPLETED // buyer confirmed (or auto-confirm), payout released
+  DISPUTED // either party opened a dispute
+  CANCELLED // cancelled before work started
+  REFUNDED // money returned to buyer (terminal)
+}
+
+enum BoosterStatus {
+  PENDING // applied, not yet reviewed
+  APPROVED // can claim/be assigned orders
+  SUSPENDED // temporarily blocked (under investigation, policy violation)
+  REJECTED // application denied
+  INACTIVE // voluntarily left or hasn't worked in N days
+}
+
+enum BoosterTier {
+  STANDARD // default tier on approval
+  PREMIUM // earned through volume + rating
+  ELITE // top performers
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(cuid())
   clerkId   String   @unique
   email     String   @unique
   name      String?
@@ -36,20 +81,174 @@ model User {
   updatedAt DateTime @updatedAt
 
   boosterApplication BoosterApplication?
+  boosterProfile     BoosterProfile?
+  buyerOrders        Order[]             @relation("BuyerOrders")
+  boosterOrders      Order[]             @relation("BoosterOrders")
 }
 
 model BoosterApplication {
-  id         Int               @id @default(autoincrement())
-  userId     Int               @unique
+  id         String            @id @default(cuid())
+  userId     String            @unique
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   status     ApplicationStatus @default(PENDING)
   games      String[]
   experience String
   ranks      Json
   discord    String?
-  reviewedBy Int?
+  reviewedBy String?
   reviewedAt DateTime?
   notes      String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
+}
+
+model Game {
+  id       String  @id @default(cuid())
+  slug     String  @unique // "wow", "lol", "valorant"
+  name     String
+  iconUrl  String?
+  isActive Boolean @default(true)
+
+  services Service[]
+  ranks    Rank[]
+}
+
+model Service {
+  // YOU create these. Buyer picks one.
+  id     String @id @default(cuid())
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id])
+
+  slug        String // "rank-boost", "coaching", "placement-matches"
+  name        String // "Rank Boost"
+  description String
+  category    ServiceCategory
+
+  configSchema Json // Zod schema — what config the buyer fills in
+  pricingModel PricingModel
+  pricingData  Json // the actual numbers
+
+  // What kind of booster can claim orders of this service?
+  requiredBoosterTags String[] // e.g., ["lol", "diamond+"]
+
+  isActive Boolean @default(true)
+  orders   Order[]
+
+  @@unique([gameId, slug])
+}
+
+model Rank {
+  id       String  @id @default(cuid())
+  gameId   String
+  game     Game    @relation(fields: [gameId], references: [id])
+  tier     String
+  division Int?
+  order    Int
+  iconUrl  String?
+
+  @@unique([gameId, tier, division])
+  @@index([gameId, order])
+}
+
+model Order {
+  id        String  @id @default(cuid())
+  buyerId   String
+  buyer     User    @relation("BuyerOrders", fields: [buyerId], references: [id])
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  // The config the buyer chose
+  config Json // e.g., { fromRank: "gold-2", toRank: "platinum-4" }
+
+  // Price snapshot
+  priceCents         Int
+  platformFeeCents   Int
+  boosterPayoutCents Int
+  currency           String @default("USD")
+
+  // Booster assignment (nullable — unassigned until claimed/assigned)
+  boosterId  String?
+  booster    User?     @relation("BoosterOrders", fields: [boosterId], references: [id])
+  assignedAt DateTime?
+
+  status OrderStatus @default(PENDING_PAYMENT)
+  // PENDING_PAYMENT → PAID → AWAITING_BOOSTER → ASSIGNED → IN_PROGRESS → DELIVERED → COMPLETED
+  // also: DISPUTED, CANCELLED, REFUNDED
+
+  events OrderEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([buyerId])
+  @@index([boosterId])
+}
+
+model OrderEvent {
+  // Immutable append-only audit log. Never UPDATE, never DELETE.
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  type String // "PAYMENT_RECEIVED", "BOOSTER_ASSIGNED", "STATUS_CHANGED", etc.
+  data Json
+
+  actorType String // "BUYER" | "BOOSTER" | "ADMIN" | "SYSTEM" | "STRIPE"
+  actorId   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model LedgerEntry {
+  // Double-entry bookkeeping for every money movement.
+  // Two rows per movement (debit + credit). Immutable.
+  id      String  @id @default(cuid())
+  orderId String?
+  userId  String?
+
+  account     String // "platform_revenue", "booster_payable", "buyer_refundable", etc.
+  direction   String // "DEBIT" | "CREDIT"
+  amountCents Int
+  currency    String @default("USD")
+
+  description String
+  externalRef String? // Stripe payment_intent id, transfer id, etc.
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([account])
+}
+
+model BoosterProfile {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status BoosterStatus @default(PENDING)
+  tier   BoosterTier   @default(STANDARD)
+
+  // What games/services they can take
+  tags String[] // ["lol", "diamond+", "english", "eu-west"]
+
+  stripeAccountId String?
+  payoutSchedule  String?
+
+  // Performance metrics — drive matching
+  completedOrders  Int     @default(0)
+  avgRating        Float?
+  responseTimeMin  Int? // avg minutes to claim/respond
+  cancellationRate Float?
+  isAvailable      Boolean @default(true) // toggleable by booster
+  currentLoad      Int     @default(0) // active orders right now
+
+  // Limits
+  maxConcurrentOrders Int @default(3)
+
+  appliedAt  DateTime  @default(now())
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
 }

@@ -19,7 +19,17 @@ export function useApi() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const msg = body?.message ?? `${res.status} ${res.statusText}`;
+        const err = new Error(Array.isArray(msg) ? msg.join('; ') : String(msg)) as Error & {
+          status?: number;
+          body?: unknown;
+        };
+        err.status = res.status;
+        err.body = body;
+        throw err;
+      }
       return res.json() as Promise<T>;
     },
     [getToken],
