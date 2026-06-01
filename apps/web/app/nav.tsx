@@ -117,6 +117,12 @@ export function Nav() {
                 >
                   📋 Order Queue
                 </Link>
+                <Link
+                  href="/booster/payouts"
+                  className="text-sm font-medium px-3 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center"
+                >
+                  💸 Payouts
+                </Link>
                 <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900">
                   BOOSTER
                 </span>

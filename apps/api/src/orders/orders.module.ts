@@ -7,10 +7,12 @@ import { OrdersController } from './orders.controller';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeClientProvider } from '../payments/stripe.provider';
 import { CryptoService } from './crypto.service';
+import { ConnectService } from './connect.service';
+import { ConnectController } from './connect.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule, CatalogModule], // CatalogModule for PricingService
-  controllers: [OrdersController, StripeWebhookController],
-  providers: [OrdersService, StripeClientProvider, CryptoService],
+  controllers: [OrdersController, StripeWebhookController, ConnectController],
+  providers: [OrdersService, StripeClientProvider, CryptoService, ConnectService],
 })
 export class OrdersModule {}

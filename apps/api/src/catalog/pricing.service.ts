@@ -13,7 +13,7 @@ export type PriceBreakdown = {
   priceCents: number;
   platformFeeCents: number;
   boosterPayoutCents: number;
-  currency: 'USD';
+  currency: 'CHF';
   detail: Record<string, unknown>;
 };
 
@@ -52,7 +52,7 @@ export class PricingService {
 
     const platformFeeCents = Math.round(priceCents * PLATFORM_TAKE);
     const boosterPayoutCents = priceCents - platformFeeCents;
-    return { priceCents, platformFeeCents, boosterPayoutCents, currency: 'USD', detail };
+    return { priceCents, platformFeeCents, boosterPayoutCents, currency: 'CHF', detail };
   }
 
   private async calcRankMatrix(data: RankMatrixPricing, config: Record<string, unknown>, gameId: string) {

@@ -164,12 +164,16 @@ model Order {
   priceCents         Int
   platformFeeCents   Int
   boosterPayoutCents Int
-  currency           String @default("USD")
+  currency           String @default("CHF")
 
   // Booster assignment (nullable — unassigned until claimed/assigned)
   boosterId  String?
   booster    User?     @relation("BoosterOrders", fields: [boosterId], references: [id])
   assignedAt DateTime?
+
+  // Stripe Connect payout tracking
+  chargeId         String? // Stripe charge id — used as source_transaction when transferring to the booster
+  payoutTransferId String? // Stripe transfer id once the booster is paid; null = unpaid/pending
 
   status OrderStatus @default(PENDING_PAYMENT)
   // PENDING_PAYMENT → PAID → AWAITING_BOOSTER → ASSIGNED → IN_PROGRESS → DELIVERED → COMPLETED
@@ -227,7 +231,7 @@ model LedgerEntry {
   account     String // "platform_revenue", "booster_payable", "buyer_refundable", etc.
   direction   String // "DEBIT" | "CREDIT"
   amountCents Int
-  currency    String @default("USD")
+  currency    String @default("CHF")
 
   description String
   externalRef String? // Stripe payment_intent id, transfer id, etc.
@@ -250,6 +254,7 @@ model BoosterProfile {
   tags String[] // ["lol", "diamond+", "english", "eu-west"]
 
   stripeAccountId String?
+  payoutsEnabled  Boolean @default(false) // Stripe Connect: transfers allowed once onboarding completes
   payoutSchedule  String?
 
   // Performance metrics — drive matching
