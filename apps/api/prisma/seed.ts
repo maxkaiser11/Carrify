@@ -95,14 +95,17 @@ async function seedGame(gameSlug: string) {
 async function main() {
   await seedUsers();
   await seedGame('dota2');
+  await seedGame('lol');
 
-  const [users, games, ranks, services] = await Promise.all([
+  const [users, games, dotaRanks, dotaServices, leagueRanks, leagueServices ] = await Promise.all([
     prisma.user.count(),
     prisma.game.count(),
     prisma.rank.count({ where: { game: { slug: 'dota2' } } }),
     prisma.service.count({ where: { game: { slug: 'dota2' } } }),
+    prisma.rank.count({ where: { game: { slug: 'lol' } } }),
+    prisma.service.count({ where: { game: { slug: 'lol' } } }),
   ]);
-  console.log(`Seeded: ${users} users, ${games} games, ${ranks} Dota 2 ranks, ${services} Dota 2 services`);
+  console.log(`Seeded: ${users} users, ${games} games, ${dotaRanks} Dota 2 ranks, ${dotaServices} Dota 2 services, ${leagueRanks} League of Legends ranks, ${leagueServices} League of Legends services`);
 }
 
 main()
