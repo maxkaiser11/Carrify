@@ -1,0 +1,38 @@
+{
+  "slug": "rank-boost",
+  "name": "Rank Boost",
+  "description": "We boost your account from your current rank to your target rank.",
+  "category": "BOOST",
+  "requiredBoosterTags": ["valorant"],
+  "configSchema": {
+    "fields": [
+      { "key": "fromRankId",   "label": "Current rank",         "type": "rank",    "required": true  },
+      { "key": "toRankId",     "label": "Target rank",          "type": "rank",    "required": true  },
+      { "key": "soloOnly",     "label": "Solo queue only",      "type": "boolean", "default": false  },
+      { "key": "specificRole", "label": "Pick my role",         "type": "boolean", "default": false  },
+      { "key": "streaming",    "label": "Stream my games",      "type": "boolean", "default": false  },
+      { "key": "express",      "label": "Express (priority)",   "type": "boolean", "default": false  }
+    ]
+  },
+  "pricingModel": "RANK_MATRIX",
+  "pricingData": {
+    "basePriceCents": 200,
+    "perDivisionCents": 250,
+    "tierMultipliers": {
+      "Herald":   1.0,
+      "Guardian": 1.2,
+      "Crusader": 1.6,
+      "Archon":   2.4,
+      "Legend":   4.0,
+      "Ancient":  7.0,
+      "Divine":   14.0,
+      "Immortal": 30.0
+    },
+    "modifiers": {
+      "soloOnly":     1.4,
+      "specificRole": 1.15,
+      "streaming":    1.1,
+      "express":      1.3
+    }
+  }
+}

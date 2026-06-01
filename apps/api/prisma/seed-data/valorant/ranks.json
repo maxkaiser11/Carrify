@@ -1,0 +1,29 @@
+{
+  "ranks": [
+    { "tier": "Iron",   "division": 1 },
+    { "tier": "Iron",   "division": 2 },
+    { "tier": "Iron",   "division": 3 },
+    { "tier": "Bronze", "division": 1 },
+    { "tier": "Bronze", "division": 2 },
+    { "tier": "Bronze", "division": 3 },
+    { "tier": "Silver", "division": 1 },
+    { "tier": "Silver", "division": 2 },
+    { "tier": "Silver", "division": 3 },
+    { "tier": "Gold",   "division": 1 },
+    { "tier": "Gold",   "division": 2 },
+    { "tier": "Gold",   "division": 3 },
+    { "tier": "Platinum",   "division": 1 },
+    { "tier": "Platinum",   "division": 2 },
+    { "tier": "Platinum",   "division": 3 },
+    { "tier": "Ascendant",  "division": 1 },
+    { "tier": "Ascendant",  "division": 2 },
+    { "tier": "Ascendant",  "division": 3 },
+    { "tier": "Diamond",   "division": 1 },
+    { "tier": "Diamond",   "division": 2 },
+    { "tier": "Diamond",   "division": 3 },
+    { "tier": "Immortal",   "division": 1 },
+    { "tier": "Immortal",   "division": 2 },
+    { "tier": "Immortal",   "division": 3 },
+    { "tier": "Radiant", "division": null }
+  ]
+}
