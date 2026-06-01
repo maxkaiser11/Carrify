@@ -175,7 +175,8 @@ model Order {
   // PENDING_PAYMENT → PAID → AWAITING_BOOSTER → ASSIGNED → IN_PROGRESS → DELIVERED → COMPLETED
   // also: DISPUTED, CANCELLED, REFUNDED
 
-  events OrderEvent[]
+  events      OrderEvent[]
+  credentials OrderCredentials?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -183,6 +184,20 @@ model Order {
   @@index([status, createdAt])
   @@index([buyerId])
   @@index([boosterId])
+}
+
+model OrderCredentials {
+  // Account access the buyer shares with the assigned booster (account-sharing services).
+  // Sensitive: only the buyer, the assigned booster, and admins may read it.
+  orderId String @id
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  username String
+  password String // TODO: encrypt at rest before production — currently stored plaintext
+  country  String // buyer's country; booster matches VPN region to avoid login flags
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OrderEvent {

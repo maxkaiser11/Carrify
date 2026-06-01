@@ -19,14 +19,14 @@
     "basePriceCents": 200,
     "perDivisionCents": 250,
     "tierMultipliers": {
-      "Herald":   1.0,
-      "Guardian": 1.2,
-      "Crusader": 1.6,
-      "Archon":   2.4,
-      "Legend":   4.0,
-      "Ancient":  7.0,
-      "Divine":   14.0,
-      "Immortal": 30.0
+      "Iron":   1.0,
+      "Bronze": 1.2,
+      "Silver": 1.6,
+      "Gold":   2.4,
+      "Platinum":   4.0,
+      "Emerald":  7.0,
+      "Diamond":   14.0,
+      "Master": 30.0
     },
     "modifiers": {
       "soloOnly":     1.4,

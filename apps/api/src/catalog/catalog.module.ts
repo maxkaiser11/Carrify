@@ -11,5 +11,6 @@ import { AdminCatalogController } from './admin-catalog.controller';
   imports: [PrismaModule, AuthModule],
   controllers: [GamesController, PricingController, AdminCatalogController],
   providers: [CatalogService, PricingService],
+  exports: [PricingService]
 })
 export class CatalogModule {}
