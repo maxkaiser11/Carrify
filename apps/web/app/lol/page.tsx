@@ -86,7 +86,7 @@ export default function LolPage() {
       <div className="max-w-5xl mx-auto">
         {/* Hero */}
         <div className="mb-10">
-          <div className="text-5xl mb-2">🛡️</div>
+          <div className="text-5xl mb-2">⚔️</div>
           <h1 className="text-4xl font-bold tracking-tight">
             {game.name}{' '}
             <span className="bg-linear-to-br from-brand-500 to-fuchsia-600 bg-clip-text text-transparent">

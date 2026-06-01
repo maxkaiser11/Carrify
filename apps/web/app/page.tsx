@@ -1,15 +1,7 @@
 import Link from 'next/link';
 import { currentUser } from '@clerk/nextjs/server';
 import { RoleButtons } from './role-buttons';
-
-const GAMES = [
-  { name: 'Valorant', emoji: '🎯', accent: 'from-rose-500/20 to-rose-500/0' },
-  { name: 'League of Legends', emoji: '⚔️', accent: 'from-sky-500/20 to-sky-500/0' },
-  { name: 'Dota 2', emoji: '🛡️', accent: 'from-red-500/20 to-red-500/0' },
-  { name: 'CS2', emoji: '💣', accent: 'from-amber-500/20 to-amber-500/0' },
-  { name: 'Overwatch', emoji: '🦾', accent: 'from-orange-500/20 to-orange-500/0' },
-  { name: 'Apex Legends', emoji: '🏆', accent: 'from-fuchsia-500/20 to-fuchsia-500/0' },
-];
+import { GAMES } from '../lib/games';
 
 const FEATURES = [
   {
@@ -134,18 +126,34 @@ export default async function Home() {
             <p className="mt-3 text-zinc-500">From tac-shooters to MOBAs — we&apos;ve got pros for every grind.</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {GAMES.map((g) => (
-              <div
-                key={g.name}
-                className={`group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/60 backdrop-blur p-5 text-center transition hover:-translate-y-1 hover:border-brand-400 hover:shadow-lg hover:shadow-brand-500/10`}
-              >
-                <div className={`absolute inset-0 bg-linear-to-br ${g.accent} opacity-0 group-hover:opacity-100 transition`} />
-                <div className="relative">
-                  <div className="text-4xl mb-2">{g.emoji}</div>
-                  <div className="text-sm font-medium">{g.name}</div>
+            {GAMES.map((g) => {
+              const cardClass =
+                'group relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/60 backdrop-blur p-5 text-center transition hover:-translate-y-1 hover:border-brand-400 hover:shadow-lg hover:shadow-brand-500/10';
+              const inner = (
+                <>
+                  <div className={`absolute inset-0 bg-linear-to-br ${g.accent} opacity-0 group-hover:opacity-100 transition`} />
+                  <div className="relative">
+                    <div className="text-4xl mb-2">{g.emoji}</div>
+                    <div className="text-sm font-medium">{g.name}</div>
+                    {!g.available && (
+                      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                        Coming soon
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+
+              return g.available ? (
+                <Link key={g.name} href={g.href} className={cardClass}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={g.name} className={`${cardClass} cursor-not-allowed opacity-70`}>
+                  {inner}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

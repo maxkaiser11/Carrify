@@ -1,0 +1,21 @@
+{
+  "slug": "placement-matches",
+  "name": "Placement Matches",
+  "description": "We play your placement games to maximize your starting MMR.",
+  "category": "PLACEMENT",
+  "requiredBoosterTags": ["valorant"],
+  "configSchema": {
+    "fields": [
+      { "key": "matches",  "label": "Number of matches", "type": "number",  "required": true, "min": 1, "max": 10 },
+      { "key": "soloOnly", "label": "Solo queue only",   "type": "boolean", "default": false }
+    ]
+  },
+  "pricingModel": "TIERED",
+  "pricingData": {
+    "tiers": [
+      { "upTo": 3,  "perUnitCents": 1500 },
+      { "upTo": 7,  "perUnitCents": 1200 },
+      { "upTo": 10, "perUnitCents": 1000 }
+    ]
+  }
+}
