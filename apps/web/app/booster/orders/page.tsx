@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function dollars(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `CHF ${(cents / 100).toFixed(2)}`;
 }
 
 function configSummary(rows: ConfigRow[]) {

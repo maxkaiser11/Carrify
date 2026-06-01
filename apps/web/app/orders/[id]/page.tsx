@@ -42,7 +42,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 const CREDENTIALS_VISIBLE = ['PAID', 'AWAITING_BOOSTER', 'ASSIGNED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'];
 
 function dollars(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `CHF ${(cents / 100).toFixed(2)}`;
 }
 
 export default function OrderPage() {

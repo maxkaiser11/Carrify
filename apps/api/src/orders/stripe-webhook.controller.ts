@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Stripe } from 'stripe';
 import { STRIPE_CLIENT } from '../payments/stripe.provider';
 import { OrdersService } from './orders.service';
+import { ConnectService } from './connect.service';
 
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
@@ -11,6 +12,7 @@ export class StripeWebhookController {
     @Inject(STRIPE_CLIENT) private stripe: Stripe,
     private config: ConfigService,
     private orders: OrdersService,
+    private connect: ConnectService,
   ) {}
 
   @Post()
@@ -27,8 +29,11 @@ export class StripeWebhookController {
       if (session.metadata?.orderId && session.payment_status === 'paid') {
         await this.orders.markPaidFromCheckout(session.metadata.orderId, String(session.payment_intent));
       }
+    } else if (event.type === 'account.updated') {
+      // Booster's Connect onboarding progressed — persist payout readiness, backfill pending payouts.
+      await this.connect.handleAccountUpdated(event.data.object);
     }
-    // (Later: payment_intent.payment_failed, charge.refunded, account.updated for Connect, etc.)
+    // (Later: payment_intent.payment_failed, charge.refunded, transfer.* etc.)
 
     return { received: true };
   }

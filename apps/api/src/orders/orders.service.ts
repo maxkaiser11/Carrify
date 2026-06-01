@@ -19,7 +19,12 @@ import { CryptoService } from './crypto.service';
 // Buyer statuses where account credentials may be added/edited: after payment, before the order closes.
 const CREDENTIALS_EDITABLE: string[] = ['PAID', 'AWAITING_BOOSTER', 'ASSIGNED', 'IN_PROGRESS', 'DELIVERED'];
 
+// Booster's share of the buyer price by tier (CLAUDE.md). Platform keeps the rest.
+const PAYOUT_SHARE: Record<string, number> = { STANDARD: 0.7, PREMIUM: 0.75, ELITE: 0.8 };
+
 type ConfigDisplayRow = { key: string; label: string; value: string };
+
+export type SettleResult = { status: 'paid' | 'pending' | 'already_paid'; transferId?: string };
 
 @Injectable()
 export class OrdersService {
@@ -66,6 +71,8 @@ export class OrdersService {
         const session = await this.stripe.checkout.sessions.create({
             mode: 'payment',
             metadata: { orderId: order.id },
+            // Group the charge with the later booster transfer (separate charges & transfers).
+            payment_intent_data: { transfer_group: `order_${order.id}` },
             line_items: [
                 {
                     quantity: 1,
@@ -105,24 +112,32 @@ export class OrdersService {
     if (order.status !== 'PENDING_PAYMENT') return;
     if (!canTransition(order.status, 'PAID')) return;
 
+    // The charge id is what we later transfer from (source_transaction). Derive it from the PI.
+    const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge?.id ?? null);
+
+    // Platform's take is whatever isn't owed to the booster. The payout share is the 80% snapshot
+    // until a booster claims (then it's adjusted to their tier in claim()).
+    const platformRevenueCents = order.priceCents - order.boosterPayoutCents;
+
     await this.prisma.$transaction([
         this.prisma.order.update({
             where: { id: orderId },
-            // PAID -> AWAITING_BOOSTER is immedaite per the state machine, so we land in the queue direclty.
-            data: { status: 'AWAITING_BOOSTER'},
+            // PAID -> AWAITING_BOOSTER is immediate per the state machine, so we land in the queue directly.
+            data: { status: 'AWAITING_BOOSTER', chargeId },
         }),
         this.prisma.orderEvent.create({
             data: {
                 orderId,
-                type: 'PAYMENT_RECIEVED',
+                type: 'PAYMENT_RECEIVED',
                 actorType: 'STRIPE',
-                data: { paymentIntentId } as Prisma.InputJsonValue,
+                data: { paymentIntentId, chargeId } as Prisma.InputJsonValue,
             },
         }),
         this.prisma.orderEvent.create({
             data: { orderId, type: 'STATUS_CHANGED', actorType: 'SYSTEM', data: { to: 'AWAITING_BOOSTER' } },
         }),
-        // Double-entry: buyer cash in vs. what we owe (platform revenue + booster payable)
+        // Double-entry (balanced): cash in = booster payable + platform revenue.
         this.prisma.ledgerEntry.create({
             data: {
                 orderId,
@@ -130,7 +145,7 @@ export class OrdersService {
                 direction: 'DEBIT',
                 amountCents: order.priceCents,
                 currency: order.currency,
-                description: 'Buyer payment recieved',
+                description: 'Buyer payment received',
                 externalRef: paymentIntentId,
             },
         }),
@@ -142,6 +157,17 @@ export class OrdersService {
                 amountCents: order.boosterPayoutCents,
                 currency: order.currency,
                 description: 'Booster payable (unassigned)',
+                externalRef: paymentIntentId,
+            },
+        }),
+        this.prisma.ledgerEntry.create({
+            data: {
+                orderId,
+                account: 'platform_revenue',
+                direction: 'CREDIT',
+                amountCents: platformRevenueCents,
+                currency: order.currency,
+                description: 'Platform fee',
                 externalRef: paymentIntentId,
             },
         }),
@@ -201,10 +227,21 @@ export class OrdersService {
     });
     if (claimed.count === 0) throw new ConflictException('Order was just claimed by someone else');
 
-    await this.prisma.$transaction([
+    // Now that a booster is known, settle the real payout split for their tier. The order
+    // snapshotted the max (80%) at purchase; lower tiers shift the difference to platform revenue.
+    const share = PAYOUT_SHARE[profile.tier] ?? PAYOUT_SHARE.STANDARD;
+    const newPayoutCents = Math.round(order.priceCents * share);
+    const newFeeCents = order.priceCents - newPayoutCents;
+    const deltaCents = order.boosterPayoutCents - newPayoutCents; // ≥ 0 (snapshot is the max share)
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [
         this.prisma.boosterProfile.update({
             where: { userId },
             data: { currentLoad: { increment: 1 } },
+        }),
+        this.prisma.order.update({
+            where: { id: orderId },
+            data: { boosterPayoutCents: newPayoutCents, platformFeeCents: newFeeCents },
         }),
         this.prisma.orderEvent.create({
             data: {
@@ -212,10 +249,22 @@ export class OrdersService {
                 type: 'BOOSTER_ASSIGNED',
                 actorType: 'BOOSTER',
                 actorId: userId,
-                data: { via: 'claim' },
+                data: { via: 'claim', tier: profile.tier, payoutCents: newPayoutCents },
             },
         }),
-    ]);
+    ];
+    if (deltaCents > 0) {
+        // Move the difference from what we owe the booster to platform revenue. Balanced pair.
+        ops.push(
+            this.prisma.ledgerEntry.create({
+                data: { orderId, account: 'booster_payable', direction: 'DEBIT', amountCents: deltaCents, currency: order.currency, description: `Payout adjusted to ${profile.tier} tier` },
+            }),
+            this.prisma.ledgerEntry.create({
+                data: { orderId, account: 'platform_revenue', direction: 'CREDIT', amountCents: deltaCents, currency: order.currency, description: `Payout adjusted to ${profile.tier} tier` },
+            }),
+        );
+    }
+    await this.prisma.$transaction(ops);
 
     return this.prisma.order.findUnique({ where: { id: orderId } });
   }
@@ -283,7 +332,7 @@ export class OrdersService {
     return this.prisma.order.findUnique({ where: { id: orderId } });
   }
 
-  /** Buyer confirms completion: DELIVERED -> COMPLETED, releasing the booster payout. */
+  /** Buyer confirms completion: DELIVERED -> COMPLETED, then release the booster payout. */
   async confirmComplete(userId: string, orderId: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Order not found');
@@ -292,33 +341,12 @@ export class OrdersService {
       throw new BadRequestException(`Cannot complete an order in status ${order.status}`);
     }
 
+    // Complete the order first (and free the booster's slot). This must always succeed —
+    // the buyer is never blocked by payout/onboarding state.
     const ops: Prisma.PrismaPromise<unknown>[] = [
       this.prisma.order.update({ where: { id: orderId }, data: { status: 'COMPLETED' } }),
       this.prisma.orderEvent.create({
         data: { orderId, type: 'ORDER_COMPLETED', actorType: 'BUYER', actorId: userId, data: {} },
-      }),
-      // Release the payout: move it off "payable" (what we owe) onto "paid" (settled). Balanced pair.
-      this.prisma.ledgerEntry.create({
-        data: {
-          orderId,
-          userId: order.boosterId ?? undefined,
-          account: 'booster_payable',
-          direction: 'DEBIT',
-          amountCents: order.boosterPayoutCents,
-          currency: order.currency,
-          description: 'Payout released on completion',
-        },
-      }),
-      this.prisma.ledgerEntry.create({
-        data: {
-          orderId,
-          userId: order.boosterId ?? undefined,
-          account: 'booster_paid',
-          direction: 'CREDIT',
-          amountCents: order.boosterPayoutCents,
-          currency: order.currency,
-          description: 'Booster payout',
-        },
       }),
     ];
     if (order.boosterId) {
@@ -330,7 +358,84 @@ export class OrdersService {
       );
     }
     await this.prisma.$transaction(ops);
+
+    // Then attempt the Stripe transfer. If it can't run yet (booster not onboarded, or Stripe
+    // hiccups), the order stays COMPLETED with the payout pending — settled later by backfill.
+    try {
+      await this.settleOrder(orderId);
+    } catch (err) {
+      await this.prisma.orderEvent.create({
+        data: { orderId, type: 'PAYOUT_FAILED', actorType: 'SYSTEM', data: { error: (err as Error).message } },
+      });
+    }
     return this.prisma.order.findUnique({ where: { id: orderId } });
+  }
+
+  /**
+   * Release the booster payout via a Stripe Connect transfer. Idempotent: skips if already paid,
+   * marks pending (no transfer) if the booster isn't onboarded yet. Used by confirmComplete and
+   * by the onboarding backfill once a booster becomes payout-enabled.
+   */
+  async settleOrder(orderId: string): Promise<SettleResult> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'COMPLETED') throw new BadRequestException('Order is not completed');
+    if (order.payoutTransferId) return { status: 'already_paid', transferId: order.payoutTransferId };
+    if (!order.boosterId) throw new BadRequestException('Order has no booster to pay');
+
+    const profile = await this.prisma.boosterProfile.findUnique({ where: { userId: order.boosterId } });
+    if (!profile?.stripeAccountId || !profile.payoutsEnabled) {
+      // Can't pay yet — record once so the order shows "payout pending".
+      const already = await this.prisma.orderEvent.findFirst({ where: { orderId, type: 'PAYOUT_PENDING' } });
+      if (!already) {
+        await this.prisma.orderEvent.create({
+          data: { orderId, type: 'PAYOUT_PENDING', actorType: 'SYSTEM', data: { reason: 'booster not onboarded' } },
+        });
+      }
+      return { status: 'pending' };
+    }
+
+    const transfer = await this.stripe.transfers.create(
+      {
+        amount: order.boosterPayoutCents,
+        currency: order.currency.toLowerCase(),
+        destination: profile.stripeAccountId,
+        transfer_group: `order_${order.id}`,
+        ...(order.chargeId ? { source_transaction: order.chargeId } : {}),
+        metadata: { orderId: order.id },
+      },
+      { idempotencyKey: `payout_${order.id}` },
+    );
+
+    // Settle the books: discharge the payable by paying out cash. Balanced pair.
+    await this.prisma.$transaction([
+      this.prisma.order.update({ where: { id: orderId }, data: { payoutTransferId: transfer.id } }),
+      this.prisma.ledgerEntry.create({
+        data: { orderId, userId: order.boosterId, account: 'booster_payable', direction: 'DEBIT', amountCents: order.boosterPayoutCents, currency: order.currency, description: 'Payout transferred to booster', externalRef: transfer.id },
+      }),
+      this.prisma.ledgerEntry.create({
+        data: { orderId, userId: order.boosterId, account: 'stripe_cash', direction: 'CREDIT', amountCents: order.boosterPayoutCents, currency: order.currency, description: 'Payout transferred to booster', externalRef: transfer.id },
+      }),
+      this.prisma.orderEvent.create({
+        data: { orderId, type: 'PAYOUT_SENT', actorType: 'SYSTEM', data: { transferId: transfer.id, amountCents: order.boosterPayoutCents } },
+      }),
+    ]);
+    return { status: 'paid', transferId: transfer.id };
+  }
+
+  /** Settle every completed-but-unpaid order for a booster (called when their onboarding finishes). */
+  async backfillPayouts(boosterUserId: string) {
+    const pending = await this.prisma.order.findMany({
+      where: { boosterId: boosterUserId, status: 'COMPLETED', payoutTransferId: null },
+      select: { id: true },
+    });
+    for (const o of pending) {
+      try {
+        await this.settleOrder(o.id);
+      } catch {
+        /* leave pending; a later trigger will retry */
+      }
+    }
   }
 
   // ---- Account credentials (account-sharing) ----

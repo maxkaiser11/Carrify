@@ -48,7 +48,7 @@ function rankLabel(r: Rank) {
 }
 
 function dollars(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `CHF ${(cents / 100).toFixed(2)}`;
 }
 
 function defaultConfig(fields: ConfigField[]): Record<string, unknown> {

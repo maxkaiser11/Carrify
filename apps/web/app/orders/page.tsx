@@ -31,7 +31,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 };
 
 function dollars(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `CHF ${(cents / 100).toFixed(2)}`;
 }
 
 function summary(rows: ConfigRow[]) {
