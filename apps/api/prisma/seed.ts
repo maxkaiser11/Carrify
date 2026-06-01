@@ -93,7 +93,6 @@ async function seedGame(gameSlug: string) {
 }
 
 async function main() {
-  await seedUsers();
   await seedGame('dota2');
   await seedGame('lol');
   await seedGame('valorant');

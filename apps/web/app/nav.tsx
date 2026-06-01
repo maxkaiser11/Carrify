@@ -110,9 +110,17 @@ export function Nav() {
               </Link>
             )}
             {me?.role === 'BOOSTER' && (
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900">
-                BOOSTER
-              </span>
+              <>
+                <Link
+                  href="/booster/orders"
+                  className="text-sm font-medium px-3 h-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center"
+                >
+                  📋 Order Queue
+                </Link>
+                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900">
+                  BOOSTER
+                </span>
+              </>
             )}
             {me?.role === 'ADMIN' && (
               <>
@@ -130,7 +138,15 @@ export function Nav() {
                 </Link>
               </>
             )}
-            <UserButton />
+            <UserButton>
+              <UserButton.MenuItems>
+                <UserButton.Link
+                  label="My Orders"
+                  labelIcon={<span>📦</span>}
+                  href="/orders"
+                />
+              </UserButton.MenuItems>
+            </UserButton>
           </Show>
         </div>
       </div>

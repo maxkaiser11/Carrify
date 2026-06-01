@@ -17,15 +17,23 @@ constructor(private prisma: PrismaService, @Inject(CLERK_CLIENT) private clerk: 
                     ?? u.emailAddresses[0]?.emailAddress;
         if (!email) throw new Error('Clerk user has no email');
 
-        return this.prisma.user.upsert({
-            where: { clerkId },
-            update: {},
-            create: {
-                clerkId,
-                email,
-                name: [u.firstName, u.lastName].filter(Boolean).join(' ') || null,
-                imageUrl: u.imageUrl ?? null,
-            },
+        const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || null;
+        const imageUrl = u.imageUrl ?? null;
+
+        // A row with this email may already exist under a stale clerkId (the Clerk user
+        // was deleted/recreated, or the instance changed). Email is unique per Clerk
+        // instance, so it's the same human — relink the row to the current clerkId,
+        // preserving role and any related records. Otherwise create a fresh row.
+        const byEmail = await this.prisma.user.findUnique({ where: { email }});
+        if (byEmail) {
+            return this.prisma.user.update({
+                where: { email },
+                data: { clerkId, name, imageUrl },
+            });
+        }
+
+        return this.prisma.user.create({
+            data: { clerkId, email, name, imageUrl },
         });
     }
 
